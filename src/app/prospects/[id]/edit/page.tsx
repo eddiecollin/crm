@@ -1,0 +1,18 @@
+import { notFound } from "next/navigation";
+import { updateProspectAction } from "@/app/actions";
+import { ProspectForm } from "@/components/prospect-form";
+import { PageHeader } from "@/components/ui";
+import { getProspect } from "@/lib/db";
+
+export default async function EditProspectPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const prospect = await getProspect(id);
+  if (!prospect) notFound();
+
+  return (
+    <>
+      <PageHeader eyebrow="Edit prospect" title={prospect.companyName} />
+      <ProspectForm prospect={prospect} action={updateProspectAction.bind(null, id)} />
+    </>
+  );
+}
