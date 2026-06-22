@@ -1,8 +1,12 @@
 import { Card, PageHeader } from "@/components/ui";
 import { getStats } from "@/lib/db";
+import { hasDatabase } from "@/lib/config";
+import { LocalCrmApp } from "@/components/local-crm-app";
 import { percent } from "@/lib/utils";
 
 export default async function StatsPage() {
+  if (!hasDatabase()) return <LocalCrmApp initialView="stats" />;
+
   const stats = await getStats();
   const rates = [
     { label: "Demo sent to reply", value: stats.demoToReplyRate },

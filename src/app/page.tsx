@@ -4,12 +4,16 @@ import { ProspectTable } from "@/components/prospect-table";
 import { StatCards } from "@/components/stat-cards";
 import { LinkButton, PageHeader } from "@/components/ui";
 import { getFilterOptions, getStats, listProspects } from "@/lib/db";
+import { hasDatabase } from "@/lib/config";
+import { LocalCrmApp } from "@/components/local-crm-app";
 
 export default async function Dashboard({
   searchParams
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
+  if (!hasDatabase()) return <LocalCrmApp initialView="dashboard" />;
+
   const params = await searchParams;
   const [stats, prospects, options] = await Promise.all([getStats(), listProspects(params), getFilterOptions()]);
 

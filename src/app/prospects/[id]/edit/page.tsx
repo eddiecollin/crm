@@ -3,8 +3,12 @@ import { updateProspectAction } from "@/app/actions";
 import { ProspectForm } from "@/components/prospect-form";
 import { PageHeader } from "@/components/ui";
 import { getProspect } from "@/lib/db";
+import { hasDatabase } from "@/lib/config";
+import { LocalCrmApp } from "@/components/local-crm-app";
 
 export default async function EditProspectPage({ params }: { params: Promise<{ id: string }> }) {
+  if (!hasDatabase()) return <LocalCrmApp initialView="prospects" />;
+
   const { id } = await params;
   const prospect = await getProspect(id);
   if (!prospect) notFound();

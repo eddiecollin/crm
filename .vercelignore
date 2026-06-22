@@ -1,0 +1,8 @@
+work
+outputs
+.git
+.next
+node_modules
+.env
+.env*.local
+*.log

@@ -1,8 +1,12 @@
 import { saveTemplateAction } from "@/app/actions";
 import { Card, Field, PageHeader, Button, inputClass, textareaClass } from "@/components/ui";
 import { listTemplates } from "@/lib/db";
+import { hasDatabase } from "@/lib/config";
+import { LocalCrmApp } from "@/components/local-crm-app";
 
 export default async function TemplatesPage() {
+  if (!hasDatabase()) return <LocalCrmApp initialView="templates" />;
+
   const templates = await listTemplates();
 
   return (

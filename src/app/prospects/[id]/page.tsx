@@ -4,9 +4,13 @@ import { MessageGenerator } from "@/components/message-generator";
 import { QuickActions } from "@/components/quick-actions";
 import { Button, Card, Field, LinkButton, PageHeader, inputClass, textareaClass } from "@/components/ui";
 import { getProspect, listTemplates, listTimeline } from "@/lib/db";
+import { hasDatabase } from "@/lib/config";
 import { formatDate, statusTone, todayIso } from "@/lib/utils";
+import { LocalCrmApp } from "@/components/local-crm-app";
 
 export default async function ProspectDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  if (!hasDatabase()) return <LocalCrmApp initialView="prospects" />;
+
   const { id } = await params;
   const [prospect, templates, timeline] = await Promise.all([getProspect(id), listTemplates(), listTimeline(id)]);
   if (!prospect) notFound();
