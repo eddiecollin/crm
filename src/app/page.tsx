@@ -6,6 +6,8 @@ import { LinkButton, PageHeader } from "@/components/ui";
 import { getFilterOptions, getStats, listProspects } from "@/lib/db";
 import { hasDatabase } from "@/lib/config";
 import { LocalCrmApp } from "@/components/local-crm-app";
+import { getCurrentUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export default async function Dashboard({
   searchParams
@@ -14,8 +16,10 @@ export default async function Dashboard({
 }) {
   if (!hasDatabase()) return <LocalCrmApp initialView="dashboard" />;
 
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
   const params = await searchParams;
-  const [stats, prospects, options] = await Promise.all([getStats(), listProspects(params), getFilterOptions()]);
+  const [stats, prospects, options] = await Promise.all([getStats(user.id), listProspects(params, user.id), getFilterOptions(user.id)]);
 
   return (
     <>

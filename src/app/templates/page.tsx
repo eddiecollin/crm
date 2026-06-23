@@ -3,11 +3,15 @@ import { Card, Field, PageHeader, Button, inputClass, textareaClass } from "@/co
 import { listTemplates } from "@/lib/db";
 import { hasDatabase } from "@/lib/config";
 import { LocalCrmApp } from "@/components/local-crm-app";
+import { getCurrentUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export default async function TemplatesPage() {
   if (!hasDatabase()) return <LocalCrmApp initialView="templates" />;
 
-  const templates = await listTemplates();
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const templates = await listTemplates(user.id);
 
   return (
     <>

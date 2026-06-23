@@ -5,12 +5,15 @@ import { PageHeader } from "@/components/ui";
 import { getProspect } from "@/lib/db";
 import { hasDatabase } from "@/lib/config";
 import { LocalCrmApp } from "@/components/local-crm-app";
+import { getCurrentUser } from "@/lib/auth";
 
 export default async function EditProspectPage({ params }: { params: Promise<{ id: string }> }) {
   if (!hasDatabase()) return <LocalCrmApp initialView="prospects" />;
 
   const { id } = await params;
-  const prospect = await getProspect(id);
+  const user = await getCurrentUser();
+  if (!user) notFound();
+  const prospect = await getProspect(id, user.id);
   if (!prospect) notFound();
 
   return (

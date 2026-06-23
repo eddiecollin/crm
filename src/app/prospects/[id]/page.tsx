@@ -7,12 +7,15 @@ import { getProspect, listTemplates, listTimeline } from "@/lib/db";
 import { hasDatabase } from "@/lib/config";
 import { formatDate, statusTone, todayIso } from "@/lib/utils";
 import { LocalCrmApp } from "@/components/local-crm-app";
+import { getCurrentUser } from "@/lib/auth";
 
 export default async function ProspectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   if (!hasDatabase()) return <LocalCrmApp initialView="prospects" />;
 
   const { id } = await params;
-  const [prospect, templates, timeline] = await Promise.all([getProspect(id), listTemplates(), listTimeline(id)]);
+  const user = await getCurrentUser();
+  if (!user) notFound();
+  const [prospect, templates, timeline] = await Promise.all([getProspect(id, user.id), listTemplates(user.id), listTimeline(id, user.id)]);
   if (!prospect) notFound();
 
   return (

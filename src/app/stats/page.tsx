@@ -3,11 +3,15 @@ import { getStats } from "@/lib/db";
 import { hasDatabase } from "@/lib/config";
 import { LocalCrmApp } from "@/components/local-crm-app";
 import { percent } from "@/lib/utils";
+import { getCurrentUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export default async function StatsPage() {
   if (!hasDatabase()) return <LocalCrmApp initialView="stats" />;
 
-  const stats = await getStats();
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const stats = await getStats(user.id);
   const rates = [
     { label: "Demo sent to reply", value: stats.demoToReplyRate },
     { label: "Reply to interested", value: stats.replyToInterestedRate },

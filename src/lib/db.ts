@@ -3,38 +3,12 @@ import { unstable_noStore as noStore } from "next/cache";
 import type { Prospect, ProspectFilters, ProspectStatus, Stats, Template, TimelineEntry } from "./types";
 import { STATUSES } from "./types";
 import { todayIso } from "./utils";
+import { DEFAULT_TEMPLATES } from "./defaults";
 
 let client: postgres.Sql | null = null;
 let schemaReady = false;
 
-const defaultTemplates = [
-  {
-    id: "initial-demo",
-    name: "Initial demo message",
-    type: "Initial",
-    body: "Hi {company}, I put together a quick website demo for your {trade} business in {city}: {demoUrl}\n\nI noticed a few places where a sharper site could help turn more local visitors into calls. Would you be open to taking a look?\n\nBest,\n{myName}"
-  },
-  {
-    id: "follow-up-1",
-    name: "Follow-up 1",
-    type: "Follow-up",
-    body: "Hi {company}, just checking that you saw the demo I made for your {trade} business: {demoUrl}\n\nHappy to adjust it around your services or preferred style if useful.\n\n{myName}"
-  },
-  {
-    id: "follow-up-2",
-    name: "Follow-up 2",
-    type: "Follow-up",
-    body: "Hi {company}, quick follow-up from me. The demo for your {trade} business in {city} is still here: {demoUrl}\n\nIf improving the site is on your radar, I can walk you through what I changed and why.\n\n{myName}"
-  },
-  {
-    id: "final-soft-follow-up",
-    name: "Final soft follow-up",
-    type: "Final",
-    body: "Hi {company}, I do not want to crowd your inbox, so this is my last note for now.\n\nIf you ever want to revisit the demo for your {trade} business, it is here: {demoUrl}\n\nThanks,\n{myName}"
-  }
-];
-
-function getSql() {
+export function getSql() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
     throw new Error("DATABASE_URL is not set. Add a Postgres connection string to .env.local.");
@@ -90,8 +64,27 @@ export async function ensureSchema() {
   const sql = getSql();
 
   await sql`
+    create table if not exists users (
+      id text primary key,
+      name text not null,
+      email text not null unique,
+      password_hash text not null,
+      created_at timestamptz not null default now()
+    )
+  `;
+  await sql`
+    create table if not exists sessions (
+      id text primary key,
+      user_id text not null references users(id) on delete cascade,
+      expires_at timestamptz not null,
+      created_at timestamptz not null default now()
+    )
+  `;
+
+  await sql`
     create table if not exists prospects (
       id text primary key,
+      user_id text references users(id) on delete cascade,
       company_name text not null,
       trade text not null,
       city text not null,
@@ -112,6 +105,7 @@ export async function ensureSchema() {
   await sql`
     create table if not exists templates (
       id text primary key,
+      user_id text references users(id) on delete cascade,
       name text not null,
       type text not null,
       body text not null,
@@ -130,15 +124,20 @@ export async function ensureSchema() {
       created_at timestamptz not null default now()
     )
   `;
+  await sql`alter table prospects add column if not exists user_id text references users(id) on delete cascade`;
+  await sql`alter table templates add column if not exists user_id text references users(id) on delete cascade`;
+  await sql`create index if not exists sessions_user_idx on sessions(user_id)`;
+  await sql`create index if not exists prospects_user_idx on prospects(user_id)`;
+  await sql`create index if not exists templates_user_idx on templates(user_id)`;
   await sql`create index if not exists prospects_status_idx on prospects(status)`;
   await sql`create index if not exists prospects_city_idx on prospects(city)`;
   await sql`create index if not exists prospects_trade_idx on prospects(trade)`;
   await sql`create index if not exists prospects_next_follow_up_idx on prospects(next_follow_up_date)`;
   await sql`create index if not exists timeline_entries_prospect_idx on timeline_entries(prospect_id)`;
 
-  for (const template of defaultTemplates) {
+  for (const template of DEFAULT_TEMPLATES) {
     await sql`
-      insert into templates ${sql(template)}
+      insert into templates ${sql({ ...template, user_id: null })}
       on conflict (id) do nothing
     `;
   }
@@ -146,11 +145,12 @@ export async function ensureSchema() {
   schemaReady = true;
 }
 
-export async function listProspects(filters: ProspectFilters = {}) {
+export async function listProspects(filters: ProspectFilters = {}, userId?: string) {
   noStore();
   await ensureSchema();
   const sql = getSql();
   const clauses = [];
+  if (userId) clauses.push(sql`user_id = ${userId}`);
   if (filters.status) clauses.push(sql`status = ${filters.status}`);
   if (filters.city) clauses.push(sql`city = ${filters.city}`);
   if (filters.trade) clauses.push(sql`trade = ${filters.trade}`);
@@ -174,13 +174,17 @@ export async function listProspects(filters: ProspectFilters = {}) {
   return rows.map(mapProspect);
 }
 
-export async function getFilterOptions() {
+export async function getFilterOptions(userId?: string) {
   noStore();
   await ensureSchema();
   const sql = getSql();
   const [cities, trades] = await Promise.all([
-    sql`select distinct city from prospects where city <> '' order by city`,
-    sql`select distinct trade from prospects where trade <> '' order by trade`
+    userId
+      ? sql`select distinct city from prospects where user_id = ${userId} and city <> '' order by city`
+      : sql`select distinct city from prospects where city <> '' order by city`,
+    userId
+      ? sql`select distinct trade from prospects where user_id = ${userId} and trade <> '' order by trade`
+      : sql`select distinct trade from prospects where trade <> '' order by trade`
   ]);
   return {
     cities: cities.map((row) => String(row.city)),
@@ -189,25 +193,27 @@ export async function getFilterOptions() {
   };
 }
 
-export async function getProspect(id: string) {
+export async function getProspect(id: string, userId?: string) {
   noStore();
   await ensureSchema();
   const sql = getSql();
-  const rows = await sql`select * from prospects where id = ${id} limit 1`;
+  const rows = userId
+    ? await sql`select * from prospects where id = ${id} and user_id = ${userId} limit 1`
+    : await sql`select * from prospects where id = ${id} limit 1`;
   return rows[0] ? mapProspect(rows[0]) : null;
 }
 
-export async function createProspect(data: FormData) {
+export async function createProspect(data: FormData, userId?: string) {
   await ensureSchema();
   const sql = getSql();
   const id = crypto.randomUUID();
   const status = String(data.get("status") || "New lead") as ProspectStatus;
   await sql`
     insert into prospects (
-      id, company_name, trade, city, contact_person, phone, email, website_url,
+      id, user_id, company_name, trade, city, contact_person, phone, email, website_url,
       demo_url, source, status, next_follow_up_date, notes
     ) values (
-      ${id}, ${String(data.get("companyName") || "")}, ${String(data.get("trade") || "")},
+      ${id}, ${userId ?? null}, ${String(data.get("companyName") || "")}, ${String(data.get("trade") || "")},
       ${String(data.get("city") || "")}, ${String(data.get("contactPerson") || "")},
       ${String(data.get("phone") || "")}, ${String(data.get("email") || "")},
       ${String(data.get("websiteUrl") || "")}, ${String(data.get("demoUrl") || "")},
@@ -219,7 +225,7 @@ export async function createProspect(data: FormData) {
   return id;
 }
 
-export async function updateProspect(id: string, data: FormData) {
+export async function updateProspect(id: string, data: FormData, userId?: string) {
   await ensureSchema();
   const sql = getSql();
   await sql`
@@ -238,11 +244,11 @@ export async function updateProspect(id: string, data: FormData) {
       next_follow_up_date = ${String(data.get("nextFollowUpDate") || "") || null},
       notes = ${String(data.get("notes") || "")},
       updated_at = now()
-    where id = ${id}
+    where id = ${id} ${userId ? sql`and user_id = ${userId}` : sql``}
   `;
 }
 
-export async function quickUpdateStatus(id: string, status: ProspectStatus) {
+export async function quickUpdateStatus(id: string, status: ProspectStatus, userId?: string) {
   await ensureSchema();
   const sql = getSql();
   const today = todayIso();
@@ -251,26 +257,28 @@ export async function quickUpdateStatus(id: string, status: ProspectStatus) {
       status = ${status},
       last_contacted_date = ${today},
       updated_at = now()
-    where id = ${id}
+    where id = ${id} ${userId ? sql`and user_id = ${userId}` : sql``}
   `;
   await addTimelineEntry(id, status, "", `Status changed to ${status}.`);
 }
 
-export async function listTemplates() {
+export async function listTemplates(userId?: string) {
   noStore();
   await ensureSchema();
   const sql = getSql();
-  const rows = await sql`select * from templates order by created_at asc`;
+  const rows = userId
+    ? await sql`select * from templates where user_id is null or user_id = ${userId} order by user_id nulls first, created_at asc`
+    : await sql`select * from templates order by created_at asc`;
   return rows.map(mapTemplate);
 }
 
-export async function upsertTemplate(data: FormData) {
+export async function upsertTemplate(data: FormData, userId?: string) {
   await ensureSchema();
   const sql = getSql();
   const id = String(data.get("id") || crypto.randomUUID());
   await sql`
-    insert into templates (id, name, type, body)
-    values (${id}, ${String(data.get("name") || "")}, ${String(data.get("type") || "")}, ${String(data.get("body") || "")})
+    insert into templates (id, user_id, name, type, body)
+    values (${id}, ${userId ?? null}, ${String(data.get("name") || "")}, ${String(data.get("type") || "")}, ${String(data.get("body") || "")})
     on conflict (id) do update set
       name = excluded.name,
       type = excluded.type,
@@ -279,15 +287,22 @@ export async function upsertTemplate(data: FormData) {
   `;
 }
 
-export async function listTimeline(prospectId: string) {
+export async function listTimeline(prospectId: string, userId?: string) {
   noStore();
   await ensureSchema();
   const sql = getSql();
-  const rows = await sql`
-    select * from timeline_entries
-    where prospect_id = ${prospectId}
-    order by entry_date desc, created_at desc
-  `;
+  const rows = userId
+    ? await sql`
+        select timeline_entries.* from timeline_entries
+        join prospects on prospects.id = timeline_entries.prospect_id
+        where timeline_entries.prospect_id = ${prospectId} and prospects.user_id = ${userId}
+        order by entry_date desc, timeline_entries.created_at desc
+      `
+    : await sql`
+        select * from timeline_entries
+        where prospect_id = ${prospectId}
+        order by entry_date desc, created_at desc
+      `;
   return rows.map(mapTimeline);
 }
 
@@ -300,9 +315,13 @@ export async function addTimelineEntry(prospectId: string, actionType: string, m
   `;
 }
 
-export async function addManualTimelineEntry(prospectId: string, data: FormData) {
+export async function addManualTimelineEntry(prospectId: string, data: FormData, userId?: string) {
   await ensureSchema();
   const sql = getSql();
+  if (userId) {
+    const [prospect] = await sql`select id from prospects where id = ${prospectId} and user_id = ${userId}`;
+    if (!prospect) return;
+  }
   await sql`
     insert into timeline_entries (id, prospect_id, entry_date, action_type, message_sent, notes)
     values (
@@ -316,7 +335,7 @@ export async function addManualTimelineEntry(prospectId: string, data: FormData)
   `;
 }
 
-export async function getStats(): Promise<Stats> {
+export async function getStats(userId?: string): Promise<Stats> {
   noStore();
   await ensureSchema();
   const sql = getSql();
@@ -329,6 +348,7 @@ export async function getStats(): Promise<Stats> {
       count(*) filter (where status = 'Won')::int as won_clients,
       count(*) filter (where next_follow_up_date <= current_date and status not in ('Won', 'Lost', 'Not now'))::int as follow_ups_due_today
     from prospects
+    ${userId ? sql`where user_id = ${userId}` : sql``}
   `;
   const totalProspects = Number(rows.total_prospects || 0);
   const demosSent = Number(rows.demos_sent || 0);

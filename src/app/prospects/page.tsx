@@ -5,6 +5,8 @@ import { LinkButton, PageHeader } from "@/components/ui";
 import { getFilterOptions, listProspects } from "@/lib/db";
 import { hasDatabase } from "@/lib/config";
 import { LocalCrmApp } from "@/components/local-crm-app";
+import { getCurrentUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export default async function ProspectsPage({
   searchParams
@@ -13,8 +15,10 @@ export default async function ProspectsPage({
 }) {
   if (!hasDatabase()) return <LocalCrmApp initialView="prospects" />;
 
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
   const params = await searchParams;
-  const [prospects, options] = await Promise.all([listProspects(params), getFilterOptions()]);
+  const [prospects, options] = await Promise.all([listProspects(params, user.id), getFilterOptions(user.id)]);
 
   return (
     <>
