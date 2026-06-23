@@ -7,6 +7,7 @@ import { DEFAULT_TEMPLATES } from "./defaults";
 
 let client: postgres.Sql | null = null;
 let schemaReady = false;
+let schemaPromise: Promise<void> | null = null;
 
 export function getSql() {
   const databaseUrl = process.env.DATABASE_URL;
@@ -61,88 +62,103 @@ function mapTimeline(row: Record<string, unknown>): TimelineEntry {
 
 export async function ensureSchema() {
   if (schemaReady) return;
+  if (schemaPromise) return schemaPromise;
+
+  schemaPromise = createSchema();
+  try {
+    await schemaPromise;
+    schemaReady = true;
+  } finally {
+    schemaPromise = null;
+  }
+}
+
+async function createSchema() {
   const sql = getSql();
 
-  await sql`
-    create table if not exists users (
-      id text primary key,
-      name text not null,
-      email text not null unique,
-      password_hash text not null,
-      created_at timestamptz not null default now()
-    )
-  `;
-  await sql`
-    create table if not exists sessions (
-      id text primary key,
-      user_id text not null references users(id) on delete cascade,
-      expires_at timestamptz not null,
-      created_at timestamptz not null default now()
-    )
-  `;
-
-  await sql`
-    create table if not exists prospects (
-      id text primary key,
-      user_id text references users(id) on delete cascade,
-      company_name text not null,
-      trade text not null,
-      city text not null,
-      contact_person text,
-      phone text,
-      email text,
-      website_url text,
-      demo_url text,
-      source text,
-      status text not null default 'New lead',
-      last_contacted_date date,
-      next_follow_up_date date,
-      notes text,
-      created_at timestamptz not null default now(),
-      updated_at timestamptz not null default now()
-    )
-  `;
-  await sql`
-    create table if not exists templates (
-      id text primary key,
-      user_id text references users(id) on delete cascade,
-      name text not null,
-      type text not null,
-      body text not null,
-      created_at timestamptz not null default now(),
-      updated_at timestamptz not null default now()
-    )
-  `;
-  await sql`
-    create table if not exists timeline_entries (
-      id text primary key,
-      prospect_id text not null references prospects(id) on delete cascade,
-      entry_date date not null default current_date,
-      action_type text not null,
-      message_sent text,
-      notes text,
-      created_at timestamptz not null default now()
-    )
-  `;
-  await sql`alter table prospects add column if not exists user_id text references users(id) on delete cascade`;
-  await sql`alter table templates add column if not exists user_id text references users(id) on delete cascade`;
-  await sql`create index if not exists sessions_user_idx on sessions(user_id)`;
-  await sql`create index if not exists prospects_user_idx on prospects(user_id)`;
-  await sql`create index if not exists templates_user_idx on templates(user_id)`;
-  await sql`create index if not exists prospects_status_idx on prospects(status)`;
-  await sql`create index if not exists prospects_city_idx on prospects(city)`;
-  await sql`create index if not exists prospects_trade_idx on prospects(trade)`;
-  await sql`create index if not exists prospects_next_follow_up_idx on prospects(next_follow_up_date)`;
-  await sql`create index if not exists timeline_entries_prospect_idx on timeline_entries(prospect_id)`;
-
-  for (const template of DEFAULT_TEMPLATES) {
+  await sql`select pg_advisory_lock(490391214)`;
+  try {
     await sql`
-      insert into templates ${sql({ ...template, user_id: null })}
-      on conflict (id) do nothing
+      create table if not exists users (
+        id text primary key,
+        name text not null,
+        email text not null unique,
+        password_hash text not null,
+        created_at timestamptz not null default now()
+      )
     `;
-  }
+    await sql`
+      create table if not exists sessions (
+        id text primary key,
+        user_id text not null references users(id) on delete cascade,
+        expires_at timestamptz not null,
+        created_at timestamptz not null default now()
+      )
+    `;
 
-  schemaReady = true;
+    await sql`
+      create table if not exists prospects (
+        id text primary key,
+        user_id text references users(id) on delete cascade,
+        company_name text not null,
+        trade text not null,
+        city text not null,
+        contact_person text,
+        phone text,
+        email text,
+        website_url text,
+        demo_url text,
+        source text,
+        status text not null default 'New lead',
+        last_contacted_date date,
+        next_follow_up_date date,
+        notes text,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now()
+      )
+    `;
+    await sql`
+      create table if not exists templates (
+        id text primary key,
+        user_id text references users(id) on delete cascade,
+        name text not null,
+        type text not null,
+        body text not null,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now()
+      )
+    `;
+    await sql`
+      create table if not exists timeline_entries (
+        id text primary key,
+        prospect_id text not null references prospects(id) on delete cascade,
+        entry_date date not null default current_date,
+        action_type text not null,
+        message_sent text,
+        notes text,
+        created_at timestamptz not null default now()
+      )
+    `;
+    await sql`alter table prospects add column if not exists user_id text references users(id) on delete cascade`;
+    await sql`alter table templates add column if not exists user_id text references users(id) on delete cascade`;
+    await sql`create index if not exists sessions_user_idx on sessions(user_id)`;
+    await sql`create index if not exists prospects_user_idx on prospects(user_id)`;
+    await sql`create index if not exists templates_user_idx on templates(user_id)`;
+    await sql`create index if not exists prospects_status_idx on prospects(status)`;
+    await sql`create index if not exists prospects_city_idx on prospects(city)`;
+    await sql`create index if not exists prospects_trade_idx on prospects(trade)`;
+    await sql`create index if not exists prospects_next_follow_up_idx on prospects(next_follow_up_date)`;
+    await sql`create index if not exists timeline_entries_prospect_idx on timeline_entries(prospect_id)`;
+
+    for (const template of DEFAULT_TEMPLATES) {
+      await sql`
+        insert into templates ${sql({ ...template, user_id: null })}
+        on conflict (id) do nothing
+      `;
+    }
+  } finally {
+    await sql`select pg_advisory_unlock(490391214)`;
+  }
 }
 
 export async function listProspects(filters: ProspectFilters = {}, userId?: string) {

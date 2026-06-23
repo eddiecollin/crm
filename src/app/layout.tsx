@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { BarChart3, CalendarClock, LayoutDashboard, Send, Settings2, UsersRound } from "lucide-react";
 import "./globals.css";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Outreach CRM",
   description: "Track prospects, demos, follow-ups, replies, and outreach templates."
