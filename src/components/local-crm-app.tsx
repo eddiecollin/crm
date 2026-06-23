@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, CalendarClock, Copy, ExternalLink, Plus, Save, Send } from "lucide-react";
+import { BarChart3, CalendarClock, Copy, LogOut, Plus, Save, Send, UserPlus } from "lucide-react";
 import { DEFAULT_TEMPLATES } from "@/lib/defaults";
 import { STATUSES, type Prospect, type ProspectStatus, type Template, type TimelineEntry } from "@/lib/types";
 import { formatDate, percent, personalizeTemplate, statusTone, todayIso } from "@/lib/utils";
 import { Button, Card, Field, PageHeader, inputClass, textareaClass } from "./ui";
 
 type View = "dashboard" | "prospects" | "followups" | "templates" | "stats" | "new" | "detail" | "edit";
+type AuthMode = "login" | "signup";
 
 type LocalState = {
   prospects: Prospect[];
@@ -22,23 +23,97 @@ const emptyState: LocalState = {
 };
 
 const storageKey = "outreach-crm-local-v1";
+const usersKey = "outreach-crm-users-v1";
+const sessionKey = "outreach-crm-session-v1";
 
-export function LocalCrmApp({ initialView = "dashboard" }: { initialView?: View }) {
+type LocalUser = {
+  id: string;
+  name: string;
+  email: string;
+  passwordHash: string;
+  createdAt: string;
+};
+
+export function LocalCrmApp({
+  initialView = "dashboard",
+  initialAuthMode = "login"
+}: {
+  initialView?: View;
+  initialAuthMode?: AuthMode;
+}) {
   const [state, setState] = useState<LocalState>(emptyState);
   const [view, setView] = useState<View>(initialView);
+  const [authMode, setAuthMode] = useState<AuthMode>(initialAuthMode);
+  const [user, setUser] = useState<LocalUser | null>(null);
+  const [authError, setAuthError] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [filters, setFilters] = useState({ status: "", city: "", trade: "", sort: "newest" });
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    const raw = window.localStorage.getItem(storageKey);
-    if (raw) setState({ ...emptyState, ...JSON.parse(raw) });
+    const sessionUserId = window.localStorage.getItem(sessionKey);
+    const users = readUsers();
+    const activeUser = users.find((item) => item.id === sessionUserId) ?? null;
+    setUser(activeUser);
+    if (activeUser) {
+      const raw = window.localStorage.getItem(userStorageKey(activeUser.id));
+      setState(raw ? { ...emptyState, ...JSON.parse(raw) } : emptyState);
+    }
     setLoaded(true);
   }, []);
 
   useEffect(() => {
-    if (loaded) window.localStorage.setItem(storageKey, JSON.stringify(state));
-  }, [loaded, state]);
+    if (loaded && user) window.localStorage.setItem(userStorageKey(user.id), JSON.stringify(state));
+  }, [loaded, state, user]);
+
+  async function handleAuth(formData: FormData) {
+    setAuthError("");
+    const name = String(formData.get("name") || "").trim();
+    const email = String(formData.get("email") || "").trim().toLowerCase();
+    const password = String(formData.get("password") || "");
+    if (!email || !password || (authMode === "signup" && !name)) {
+      setAuthError("Fill in all required fields.");
+      return;
+    }
+    if (password.length < 6) {
+      setAuthError("Use at least 6 characters for the password.");
+      return;
+    }
+    const users = readUsers();
+    const passwordHash = await hashPassword(password);
+
+    if (authMode === "signup") {
+      if (users.some((item) => item.email === email)) {
+        setAuthError("That email already has an account. Log in instead.");
+        return;
+      }
+      const nextUser = { id: crypto.randomUUID(), name, email, passwordHash, createdAt: new Date().toISOString() };
+      window.localStorage.setItem(usersKey, JSON.stringify([...users, nextUser]));
+      window.localStorage.setItem(sessionKey, nextUser.id);
+      setUser(nextUser);
+      setState(emptyState);
+      setView("dashboard");
+      return;
+    }
+
+    const existing = users.find((item) => item.email === email && item.passwordHash === passwordHash);
+    if (!existing) {
+      setAuthError("Email or password is wrong.");
+      return;
+    }
+    window.localStorage.setItem(sessionKey, existing.id);
+    setUser(existing);
+    const raw = window.localStorage.getItem(userStorageKey(existing.id));
+    setState(raw ? { ...emptyState, ...JSON.parse(raw) } : emptyState);
+    setView("dashboard");
+  }
+
+  function logout() {
+    window.localStorage.removeItem(sessionKey);
+    setUser(null);
+    setState(emptyState);
+    setAuthMode("login");
+  }
 
   const stats = useMemo(() => {
     const demosSent = state.prospects.filter((p) =>
@@ -174,9 +249,21 @@ export function LocalCrmApp({ initialView = "dashboard" }: { initialView?: View 
     }));
   }
 
+  if (!loaded) return null;
+
+  if (!user) {
+    return <LocalAuth mode={authMode} setMode={setAuthMode} error={authError} action={handleAuth} />;
+  }
+
   const nav = (
     <div className="mb-5 rounded-md border border-line bg-mint px-4 py-3 text-sm text-pine">
-      Running in browser storage mode. Your data saves in this browser now; add `DATABASE_URL` in Vercel later for shared cloud storage.
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <span>Signed in as {user.name}. This version saves account data in this browser; add `DATABASE_URL` later for shared cloud storage.</span>
+        <Button variant="secondary" className="h-8 bg-white px-2 text-xs" onClick={logout}>
+          <LogOut size={14} />
+          Log out
+        </Button>
+      </div>
     </div>
   );
 
@@ -263,6 +350,75 @@ export function LocalCrmApp({ initialView = "dashboard" }: { initialView?: View 
       <FilterControls filters={filters} setFilters={setFilters} cities={cities} trades={trades} />
       <LocalTable prospects={prospects} onOpen={(id) => { setSelectedId(id); setView("detail"); }} onEdit={(id) => { setSelectedId(id); setView("edit"); }} onQuick={quickStatus} />
     </>
+  );
+}
+
+function readUsers(): LocalUser[] {
+  if (typeof window === "undefined") return [];
+  const raw = window.localStorage.getItem(usersKey);
+  return raw ? JSON.parse(raw) : [];
+}
+
+function userStorageKey(userId: string) {
+  return `${storageKey}:${userId}`;
+}
+
+async function hashPassword(password: string) {
+  const bytes = new TextEncoder().encode(password);
+  const hash = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(hash))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function LocalAuth({
+  mode,
+  setMode,
+  error,
+  action
+}: {
+  mode: AuthMode;
+  setMode: (mode: AuthMode) => void;
+  error: string;
+  action: (formData: FormData) => void;
+}) {
+  return (
+    <div className="mx-auto flex min-h-[70vh] max-w-md items-center">
+      <Card className="w-full p-6">
+        <div className="mb-5">
+          <div className="grid size-11 place-items-center rounded-lg bg-pine text-white">
+            <UserPlus size={20} />
+          </div>
+          <h1 className="mt-4 text-2xl font-semibold text-ink">{mode === "signup" ? "Create your CRM account" : "Log in to your CRM"}</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            {mode === "signup"
+              ? "Use this same link on any browser to create an account."
+              : "Enter your email and password to get back to your pipeline."}
+          </p>
+        </div>
+        <form action={action} className="grid gap-4">
+          {mode === "signup" ? (
+            <Field label="Name">
+              <input name="name" autoComplete="name" className={inputClass} />
+            </Field>
+          ) : null}
+          <Field label="Email">
+            <input name="email" type="email" autoComplete="email" className={inputClass} />
+          </Field>
+          <Field label="Password">
+            <input name="password" type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} className={inputClass} />
+          </Field>
+          {error ? <div className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-coral">{error}</div> : null}
+          <Button>{mode === "signup" ? "Create account" : "Log in"}</Button>
+        </form>
+        <div className="mt-5 text-sm text-slate-600">
+          {mode === "signup" ? "Already have an account?" : "Need an account?"}{" "}
+          <button className="font-semibold text-pine" onClick={() => setMode(mode === "signup" ? "login" : "signup")}>
+            {mode === "signup" ? "Log in" : "Create one"}
+          </button>
+        </div>
+      </Card>
+    </div>
   );
 }
 
