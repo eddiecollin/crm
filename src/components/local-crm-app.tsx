@@ -117,10 +117,14 @@ export function LocalCrmApp({
 
   const stats = useMemo(() => {
     const demosSent = state.prospects.filter((p) =>
-      ["Demo sent", "Follow-up 1 sent", "Follow-up 2 sent", "Replied", "Interested", "Meeting booked", "Won", "Lost", "Not now"].includes(p.status)
+      ["Demo sent", "Follow-up 1 sent", "Follow-up 2 sent", "Replied", "Interested", "Handed to closer", "Meeting booked", "Meeting completed", "Proposal sent", "Won", "Lost", "Not now"].includes(p.status)
     ).length;
-    const replies = state.prospects.filter((p) => ["Replied", "Interested", "Meeting booked", "Won"].includes(p.status)).length;
-    const interestedLeads = state.prospects.filter((p) => ["Interested", "Meeting booked", "Won"].includes(p.status)).length;
+    const replies = state.prospects.filter((p) => ["Replied", "Interested", "Handed to closer", "Meeting booked", "Meeting completed", "Proposal sent", "Won"].includes(p.status)).length;
+    const interestedLeads = state.prospects.filter((p) => ["Interested", "Handed to closer", "Meeting booked", "Meeting completed", "Proposal sent", "Won"].includes(p.status)).length;
+    const handoffsToCloser = state.prospects.filter((p) => ["Handed to closer", "Meeting booked", "Meeting completed", "Proposal sent", "Won"].includes(p.status)).length;
+    const meetingsBooked = state.prospects.filter((p) => ["Meeting booked", "Meeting completed", "Proposal sent", "Won"].includes(p.status)).length;
+    const meetingsCompleted = state.prospects.filter((p) => ["Meeting completed", "Proposal sent", "Won"].includes(p.status)).length;
+    const proposalsSent = state.prospects.filter((p) => ["Proposal sent", "Won"].includes(p.status)).length;
     const wonClients = state.prospects.filter((p) => p.status === "Won").length;
     const followUpsDueToday = state.prospects.filter(
       (p) => p.nextFollowUpDate && p.nextFollowUpDate <= todayIso() && !["Won", "Lost", "Not now"].includes(p.status)
@@ -132,9 +136,13 @@ export function LocalCrmApp({
       interestedLeads,
       wonClients,
       followUpsDueToday,
+      handoffsToCloser,
+      meetingsBooked,
+      meetingsCompleted,
+      proposalsSent,
       demoToReplyRate: demosSent ? (replies / demosSent) * 100 : 0,
-      replyToInterestedRate: replies ? (interestedLeads / replies) * 100 : 0,
-      interestedToWonRate: interestedLeads ? (wonClients / interestedLeads) * 100 : 0
+      replyToMeetingRate: replies ? (meetingsBooked / replies) * 100 : 0,
+      meetingToWonRate: meetingsCompleted ? (wonClients / meetingsCompleted) * 100 : 0
     };
   }, [state.prospects]);
 
@@ -169,6 +177,12 @@ export function LocalCrmApp({
       websiteUrl: String(formData.get("websiteUrl") || ""),
       demoUrl: String(formData.get("demoUrl") || ""),
       source: String(formData.get("source") || ""),
+      coldCaller: String(formData.get("coldCaller") || ""),
+      closer: String(formData.get("closer") || ""),
+      meetingDate: String(formData.get("meetingDate") || ""),
+      meetingUrl: String(formData.get("meetingUrl") || ""),
+      meetingOutcome: String(formData.get("meetingOutcome") || ""),
+      dealValue: String(formData.get("dealValue") || ""),
       status: String(formData.get("status") || "New lead") as ProspectStatus,
       lastContactedDate: String(formData.get("lastContactedDate") || ""),
       nextFollowUpDate: String(formData.get("nextFollowUpDate") || ""),
@@ -527,6 +541,8 @@ function LocalProspectForm({ prospect, onSave }: { prospect?: Prospect; onSave: 
           <Field label="Current website URL"><input name="websiteUrl" type="url" defaultValue={prospect?.websiteUrl} className={inputClass} /></Field>
           <Field label="Demo URL"><input name="demoUrl" type="url" defaultValue={prospect?.demoUrl} className={inputClass} /></Field>
           <Field label="Source"><input name="source" defaultValue={prospect?.source} className={inputClass} /></Field>
+          <Field label="Cold caller"><input name="coldCaller" defaultValue={prospect?.coldCaller} className={inputClass} /></Field>
+          <Field label="Closer"><input name="closer" defaultValue={prospect?.closer} className={inputClass} /></Field>
           <Field label="Status">
             <select name="status" defaultValue={prospect?.status ?? "New lead"} className={inputClass}>
               {STATUSES.map((status) => <option key={status}>{status}</option>)}
@@ -534,6 +550,10 @@ function LocalProspectForm({ prospect, onSave }: { prospect?: Prospect; onSave: 
           </Field>
           {prospect ? <Field label="Last contacted date"><input name="lastContactedDate" type="date" defaultValue={prospect.lastContactedDate} className={inputClass} /></Field> : null}
           <Field label="Next follow-up date"><input name="nextFollowUpDate" type="date" defaultValue={prospect?.nextFollowUpDate} className={inputClass} /></Field>
+          <Field label="Teams meeting date"><input name="meetingDate" type="date" defaultValue={prospect?.meetingDate} className={inputClass} /></Field>
+          <Field label="Teams meeting link"><input name="meetingUrl" type="url" defaultValue={prospect?.meetingUrl} className={inputClass} /></Field>
+          <Field label="Deal value"><input name="dealValue" defaultValue={prospect?.dealValue} className={inputClass} /></Field>
+          <div className="md:col-span-2 xl:col-span-3"><Field label="Meeting outcome / closer notes"><textarea name="meetingOutcome" defaultValue={prospect?.meetingOutcome} className={textareaClass} /></Field></div>
           <div className="md:col-span-2 xl:col-span-3"><Field label="Notes"><textarea name="notes" defaultValue={prospect?.notes} className={textareaClass} /></Field></div>
         </div>
         <div className="mt-5 flex justify-end"><Button><Save size={16} />Save prospect</Button></div>
@@ -577,16 +597,22 @@ function LocalDetail({
               ["Email", prospect.email],
               ["Website", prospect.websiteUrl],
               ["Demo", prospect.demoUrl],
+              ["Cold caller", prospect.coldCaller],
+              ["Closer", prospect.closer],
               ["Last contacted", formatDate(prospect.lastContactedDate)],
-              ["Next follow-up", formatDate(prospect.nextFollowUpDate)]
+              ["Next follow-up", formatDate(prospect.nextFollowUpDate)],
+              ["Meeting date", formatDate(prospect.meetingDate)],
+              ["Teams link", prospect.meetingUrl],
+              ["Deal value", prospect.dealValue]
             ].map(([label, value]) => <div key={label} className="grid grid-cols-[130px_1fr] border-t border-line py-3 text-sm"><div className="text-slate-500">{label}</div><div>{value}</div></div>)}
             <div className="mt-4 flex flex-wrap gap-2">
-              {(["Demo sent", "Follow-up 1 sent", "Follow-up 2 sent", "Replied", "Won", "Lost"] as ProspectStatus[]).map((status) => (
+              {(["Demo sent", "Follow-up 1 sent", "Follow-up 2 sent", "Replied", "Interested", "Handed to closer", "Meeting booked", "Meeting completed", "Proposal sent", "Won", "Lost"] as ProspectStatus[]).map((status) => (
                 <Button key={status} variant={status === "Lost" ? "danger" : "secondary"} onClick={() => onQuick(prospect.id, status)}>{status}</Button>
               ))}
             </div>
           </Card>
           <Card className="p-5"><h2 className="font-semibold">Notes</h2><p className="mt-3 whitespace-pre-wrap text-sm text-slate-600">{prospect.notes || "No notes yet."}</p></Card>
+          <Card className="p-5"><h2 className="font-semibold">Closer notes</h2><p className="mt-3 whitespace-pre-wrap text-sm text-slate-600">{prospect.meetingOutcome || "No meeting outcome recorded yet."}</p></Card>
         </div>
         <div className="grid gap-5">
           <Card className="p-5">
@@ -635,11 +661,13 @@ function StatStrip({ stats }: { stats: any }) {
     ["Total prospects", stats.totalProspects],
     ["Demos sent", stats.demosSent],
     ["Replies", stats.replies],
-    ["Interested", stats.interestedLeads],
+    ["Handed to closer", stats.handoffsToCloser],
+    ["Meetings booked", stats.meetingsBooked],
+    ["Proposals sent", stats.proposalsSent],
     ["Won", stats.wonClients],
     ["Due today", stats.followUpsDueToday]
   ];
-  return <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">{items.map(([label, value]) => <Card key={label} className="p-4"><div className="text-2xl font-semibold">{value}</div><div className="text-sm text-slate-500">{label}</div></Card>)}</div>;
+  return <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{items.map(([label, value]) => <Card key={label} className="p-4"><div className="text-2xl font-semibold">{value}</div><div className="text-sm text-slate-500">{label}</div></Card>)}</div>;
 }
 
 function StatsPanel({ stats }: { stats: any }) {
@@ -647,8 +675,8 @@ function StatsPanel({ stats }: { stats: any }) {
     <div className="grid gap-4 md:grid-cols-3">
       {[
         ["Demo sent to reply", stats.demoToReplyRate],
-        ["Reply to interested", stats.replyToInterestedRate],
-        ["Interested to won", stats.interestedToWonRate]
+        ["Reply to meeting booked", stats.replyToMeetingRate],
+        ["Meeting completed to won", stats.meetingToWonRate]
       ].map(([label, value]) => <Card key={label as string} className="p-5"><div className="text-sm text-slate-500">{label}</div><div className="mt-3 text-4xl font-semibold">{percent(value as number)}</div></Card>)}
     </div>
   );

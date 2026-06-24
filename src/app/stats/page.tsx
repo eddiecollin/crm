@@ -14,8 +14,8 @@ export default async function StatsPage() {
   const stats = await getStats(user.id);
   const rates = [
     { label: "Demo sent to reply", value: stats.demoToReplyRate },
-    { label: "Reply to interested", value: stats.replyToInterestedRate },
-    { label: "Interested to won", value: stats.interestedToWonRate }
+    { label: "Reply to meeting booked", value: stats.replyToMeetingRate },
+    { label: "Meeting completed to won", value: stats.meetingToWonRate }
   ];
 
   return (
@@ -39,6 +39,10 @@ export default async function StatsPage() {
             <StatRow label="Demos sent" value={stats.demosSent} />
             <StatRow label="Replies" value={stats.replies} />
             <StatRow label="Interested leads" value={stats.interestedLeads} />
+            <StatRow label="Handed to closer" value={stats.handoffsToCloser} />
+            <StatRow label="Meetings booked" value={stats.meetingsBooked} />
+            <StatRow label="Meetings completed" value={stats.meetingsCompleted} />
+            <StatRow label="Proposals sent" value={stats.proposalsSent} />
             <StatRow label="Won clients" value={stats.wonClients} />
             <StatRow label="Follow-ups due today" value={stats.followUpsDueToday} />
           </tbody>

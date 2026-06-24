@@ -30,6 +30,12 @@ function mapProspect(row: Record<string, unknown>): Prospect {
     websiteUrl: String(row.website_url ?? ""),
     demoUrl: String(row.demo_url ?? ""),
     source: String(row.source ?? ""),
+    coldCaller: String(row.cold_caller ?? ""),
+    closer: String(row.closer ?? ""),
+    meetingDate: String(row.meeting_date ?? ""),
+    meetingUrl: String(row.meeting_url ?? ""),
+    meetingOutcome: String(row.meeting_outcome ?? ""),
+    dealValue: String(row.deal_value ?? ""),
     status: String(row.status ?? "New lead") as ProspectStatus,
     lastContactedDate: String(row.last_contacted_date ?? ""),
     nextFollowUpDate: String(row.next_follow_up_date ?? ""),
@@ -109,6 +115,12 @@ async function createSchema() {
         website_url text,
         demo_url text,
         source text,
+        cold_caller text,
+        closer text,
+        meeting_date date,
+        meeting_url text,
+        meeting_outcome text,
+        deal_value text,
         status text not null default 'New lead',
         last_contacted_date date,
         next_follow_up_date date,
@@ -140,6 +152,12 @@ async function createSchema() {
       )
     `;
     await sql`alter table prospects add column if not exists user_id text references users(id) on delete cascade`;
+    await sql`alter table prospects add column if not exists cold_caller text`;
+    await sql`alter table prospects add column if not exists closer text`;
+    await sql`alter table prospects add column if not exists meeting_date date`;
+    await sql`alter table prospects add column if not exists meeting_url text`;
+    await sql`alter table prospects add column if not exists meeting_outcome text`;
+    await sql`alter table prospects add column if not exists deal_value text`;
     await sql`alter table templates add column if not exists user_id text references users(id) on delete cascade`;
     await sql`create index if not exists sessions_user_idx on sessions(user_id)`;
     await sql`create index if not exists prospects_user_idx on prospects(user_id)`;
@@ -148,6 +166,7 @@ async function createSchema() {
     await sql`create index if not exists prospects_city_idx on prospects(city)`;
     await sql`create index if not exists prospects_trade_idx on prospects(trade)`;
     await sql`create index if not exists prospects_next_follow_up_idx on prospects(next_follow_up_date)`;
+    await sql`create index if not exists prospects_meeting_date_idx on prospects(meeting_date)`;
     await sql`create index if not exists timeline_entries_prospect_idx on timeline_entries(prospect_id)`;
 
     for (const template of DEFAULT_TEMPLATES) {
@@ -178,13 +197,15 @@ export async function listProspects(filters: ProspectFilters = {}, userId?: stri
   const order =
     filters.sort === "nextFollowUp"
       ? sql`next_follow_up_date asc nulls last, company_name asc`
-      : filters.sort === "status"
-        ? sql`status asc, company_name asc`
-        : filters.sort === "city"
-          ? sql`city asc, company_name asc`
-          : filters.sort === "trade"
-            ? sql`trade asc, company_name asc`
-            : sql`created_at desc`;
+      : filters.sort === "meetingDate"
+        ? sql`meeting_date asc nulls last, company_name asc`
+        : filters.sort === "status"
+          ? sql`status asc, company_name asc`
+          : filters.sort === "city"
+            ? sql`city asc, company_name asc`
+            : filters.sort === "trade"
+              ? sql`trade asc, company_name asc`
+              : sql`created_at desc`;
 
   const rows = await sql`select * from prospects ${where} order by ${order}`;
   return rows.map(mapProspect);
@@ -227,14 +248,19 @@ export async function createProspect(data: FormData, userId?: string) {
   await sql`
     insert into prospects (
       id, user_id, company_name, trade, city, contact_person, phone, email, website_url,
-      demo_url, source, status, next_follow_up_date, notes
+      demo_url, source, cold_caller, closer, status, next_follow_up_date, meeting_date,
+      meeting_url, meeting_outcome, deal_value, notes
     ) values (
       ${id}, ${userId ?? null}, ${String(data.get("companyName") || "")}, ${String(data.get("trade") || "")},
       ${String(data.get("city") || "")}, ${String(data.get("contactPerson") || "")},
       ${String(data.get("phone") || "")}, ${String(data.get("email") || "")},
       ${String(data.get("websiteUrl") || "")}, ${String(data.get("demoUrl") || "")},
-      ${String(data.get("source") || "")}, ${status},
-      ${String(data.get("nextFollowUpDate") || "") || null}, ${String(data.get("notes") || "")}
+      ${String(data.get("source") || "")}, ${String(data.get("coldCaller") || "")},
+      ${String(data.get("closer") || "")}, ${status},
+      ${String(data.get("nextFollowUpDate") || "") || null},
+      ${String(data.get("meetingDate") || "") || null}, ${String(data.get("meetingUrl") || "")},
+      ${String(data.get("meetingOutcome") || "")}, ${String(data.get("dealValue") || "")},
+      ${String(data.get("notes") || "")}
     )
   `;
   await addTimelineEntry(id, "Created", "", "Prospect added.");
@@ -255,9 +281,15 @@ export async function updateProspect(id: string, data: FormData, userId?: string
       website_url = ${String(data.get("websiteUrl") || "")},
       demo_url = ${String(data.get("demoUrl") || "")},
       source = ${String(data.get("source") || "")},
+      cold_caller = ${String(data.get("coldCaller") || "")},
+      closer = ${String(data.get("closer") || "")},
       status = ${String(data.get("status") || "New lead")},
       last_contacted_date = ${String(data.get("lastContactedDate") || "") || null},
       next_follow_up_date = ${String(data.get("nextFollowUpDate") || "") || null},
+      meeting_date = ${String(data.get("meetingDate") || "") || null},
+      meeting_url = ${String(data.get("meetingUrl") || "")},
+      meeting_outcome = ${String(data.get("meetingOutcome") || "")},
+      deal_value = ${String(data.get("dealValue") || "")},
       notes = ${String(data.get("notes") || "")},
       updated_at = now()
     where id = ${id} ${userId ? sql`and user_id = ${userId}` : sql``}
@@ -358,9 +390,13 @@ export async function getStats(userId?: string): Promise<Stats> {
   const [rows] = await sql`
     select
       count(*)::int as total_prospects,
-      count(*) filter (where status in ('Demo sent', 'Follow-up 1 sent', 'Follow-up 2 sent', 'Replied', 'Interested', 'Meeting booked', 'Won', 'Lost', 'Not now'))::int as demos_sent,
-      count(*) filter (where status in ('Replied', 'Interested', 'Meeting booked', 'Won'))::int as replies,
-      count(*) filter (where status in ('Interested', 'Meeting booked', 'Won'))::int as interested_leads,
+      count(*) filter (where status in ('Demo sent', 'Follow-up 1 sent', 'Follow-up 2 sent', 'Replied', 'Interested', 'Handed to closer', 'Meeting booked', 'Meeting completed', 'Proposal sent', 'Won', 'Lost', 'Not now'))::int as demos_sent,
+      count(*) filter (where status in ('Replied', 'Interested', 'Handed to closer', 'Meeting booked', 'Meeting completed', 'Proposal sent', 'Won'))::int as replies,
+      count(*) filter (where status in ('Interested', 'Handed to closer', 'Meeting booked', 'Meeting completed', 'Proposal sent', 'Won'))::int as interested_leads,
+      count(*) filter (where status in ('Handed to closer', 'Meeting booked', 'Meeting completed', 'Proposal sent', 'Won'))::int as handoffs_to_closer,
+      count(*) filter (where status in ('Meeting booked', 'Meeting completed', 'Proposal sent', 'Won'))::int as meetings_booked,
+      count(*) filter (where status in ('Meeting completed', 'Proposal sent', 'Won'))::int as meetings_completed,
+      count(*) filter (where status in ('Proposal sent', 'Won'))::int as proposals_sent,
       count(*) filter (where status = 'Won')::int as won_clients,
       count(*) filter (where next_follow_up_date <= current_date and status not in ('Won', 'Lost', 'Not now'))::int as follow_ups_due_today
     from prospects
@@ -372,6 +408,10 @@ export async function getStats(userId?: string): Promise<Stats> {
   const interestedLeads = Number(rows.interested_leads || 0);
   const wonClients = Number(rows.won_clients || 0);
   const followUpsDueToday = Number(rows.follow_ups_due_today || 0);
+  const handoffsToCloser = Number(rows.handoffs_to_closer || 0);
+  const meetingsBooked = Number(rows.meetings_booked || 0);
+  const meetingsCompleted = Number(rows.meetings_completed || 0);
+  const proposalsSent = Number(rows.proposals_sent || 0);
   return {
     totalProspects,
     demosSent,
@@ -379,8 +419,12 @@ export async function getStats(userId?: string): Promise<Stats> {
     interestedLeads,
     wonClients,
     followUpsDueToday,
+    handoffsToCloser,
+    meetingsBooked,
+    meetingsCompleted,
+    proposalsSent,
     demoToReplyRate: demosSent ? (replies / demosSent) * 100 : 0,
-    replyToInterestedRate: replies ? (interestedLeads / replies) * 100 : 0,
-    interestedToWonRate: interestedLeads ? (wonClients / interestedLeads) * 100 : 0
+    replyToMeetingRate: replies ? (meetingsBooked / replies) * 100 : 0,
+    meetingToWonRate: meetingsCompleted ? (wonClients / meetingsCompleted) * 100 : 0
   };
 }

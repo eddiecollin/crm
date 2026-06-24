@@ -24,8 +24,8 @@ export default async function Dashboard({
   return (
     <>
       <PageHeader
-        eyebrow="Sales pipeline"
-        title="Website demo outreach"
+        eyebrow="Cold outreach to close"
+        title="Website sales pipeline"
         action={
           <LinkButton href="/prospects/new">
             <Plus size={16} />

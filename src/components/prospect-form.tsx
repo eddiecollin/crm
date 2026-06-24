@@ -40,6 +40,12 @@ export function ProspectForm({
           <Field label="Source">
             <input name="source" defaultValue={prospect?.source} className={inputClass} />
           </Field>
+          <Field label="Cold caller">
+            <input name="coldCaller" defaultValue={prospect?.coldCaller} className={inputClass} placeholder="Who found this lead?" />
+          </Field>
+          <Field label="Closer">
+            <input name="closer" defaultValue={prospect?.closer} className={inputClass} placeholder="Who takes the meeting?" />
+          </Field>
           <Field label="Status">
             <select name="status" defaultValue={prospect?.status ?? "New lead"} className={inputClass}>
               {STATUSES.map((status) => (
@@ -57,6 +63,20 @@ export function ProspectForm({
           <Field label="Next follow-up date">
             <input name="nextFollowUpDate" type="date" defaultValue={prospect?.nextFollowUpDate} className={inputClass} />
           </Field>
+          <Field label="Teams meeting date">
+            <input name="meetingDate" type="date" defaultValue={prospect?.meetingDate} className={inputClass} />
+          </Field>
+          <Field label="Teams meeting link">
+            <input name="meetingUrl" type="url" defaultValue={prospect?.meetingUrl} className={inputClass} />
+          </Field>
+          <Field label="Deal value">
+            <input name="dealValue" defaultValue={prospect?.dealValue} className={inputClass} placeholder="Example: 1500 EUR" />
+          </Field>
+          <div className="md:col-span-2 xl:col-span-3">
+            <Field label="Meeting outcome / closer notes">
+              <textarea name="meetingOutcome" defaultValue={prospect?.meetingOutcome} className={textareaClass} />
+            </Field>
+          </div>
           <div className="md:col-span-2 xl:col-span-3">
             <Field label="Notes">
               <textarea name="notes" defaultValue={prospect?.notes} className={textareaClass} />

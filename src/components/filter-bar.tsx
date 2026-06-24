@@ -41,6 +41,7 @@ export function FilterBar({
         <select name="sort" defaultValue={defaults.sort ?? ""} className={inputClass}>
           <option value="">Newest first</option>
           <option value="nextFollowUp">Next follow-up</option>
+          <option value="meetingDate">Meeting date</option>
           <option value="status">Status</option>
           <option value="city">City</option>
           <option value="trade">Trade</option>

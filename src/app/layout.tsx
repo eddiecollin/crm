@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { BarChart3, CalendarClock, LayoutDashboard, Send, Settings2, UsersRound } from "lucide-react";
+import { BarChart3, CalendarClock, LayoutDashboard, Send, Settings2, UsersRound, Video } from "lucide-react";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +14,7 @@ const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/prospects", label: "Prospects", icon: UsersRound },
   { href: "/follow-ups", label: "Follow-ups", icon: CalendarClock },
+  { href: "/meetings", label: "Meetings", icon: Video },
   { href: "/templates", label: "Templates", icon: Send },
   { href: "/stats", label: "Stats", icon: BarChart3 }
 ];

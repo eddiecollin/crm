@@ -1,7 +1,7 @@
 "use client";
 
 import type { ElementType } from "react";
-import { Check, Flag, MailCheck, Reply, Send, X } from "lucide-react";
+import { CalendarCheck, Check, Flag, Handshake, MailCheck, Reply, Send, UserCheck, X } from "lucide-react";
 import { quickStatusAction } from "@/app/actions";
 import type { ProspectStatus } from "@/lib/types";
 import { Button } from "./ui";
@@ -11,6 +11,11 @@ const actions: { label: string; status: ProspectStatus; icon: ElementType; varia
   { label: "Follow-up 1", status: "Follow-up 1 sent", icon: MailCheck, variant: "secondary" },
   { label: "Follow-up 2", status: "Follow-up 2 sent", icon: MailCheck, variant: "secondary" },
   { label: "Replied", status: "Replied", icon: Reply, variant: "secondary" },
+  { label: "Interested", status: "Interested", icon: Handshake, variant: "secondary" },
+  { label: "Handoff", status: "Handed to closer", icon: UserCheck, variant: "secondary" },
+  { label: "Meeting booked", status: "Meeting booked", icon: CalendarCheck, variant: "secondary" },
+  { label: "Meeting done", status: "Meeting completed", icon: CalendarCheck, variant: "secondary" },
+  { label: "Proposal", status: "Proposal sent", icon: Send, variant: "secondary" },
   { label: "Won", status: "Won", icon: Check, variant: "secondary" },
   { label: "Lost", status: "Lost", icon: X, variant: "danger" }
 ];

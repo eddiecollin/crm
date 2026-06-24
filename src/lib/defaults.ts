@@ -20,6 +20,18 @@ export const DEFAULT_TEMPLATES: Template[] = [
     body: "Hi {company}, quick follow-up from me. The demo for your {trade} business in {city} is still here: {demoUrl}\n\nIf improving the site is on your radar, I can walk you through what I changed and why.\n\n{myName}"
   },
   {
+    id: "book-teams-meeting",
+    name: "Book Teams meeting",
+    type: "Closer handoff",
+    body: "Hi {company}, great to hear the demo is interesting.\n\nThe best next step is a quick Teams call with {closer} so we can understand what you want from the site and show what we would change. What time works for you?\n\nDemo link: {demoUrl}\n\n{myName}"
+  },
+  {
+    id: "meeting-confirmation",
+    name: "Teams meeting confirmation",
+    type: "Meeting",
+    body: "Hi {company}, confirming our Teams meeting here: {meetingUrl}\n\nWe will walk through the demo, your current site, and what a finished version could look like for your {trade} business in {city}.\n\nTalk soon,\n{myName}"
+  },
+  {
     id: "final-soft-follow-up",
     name: "Final soft follow-up",
     type: "Final",

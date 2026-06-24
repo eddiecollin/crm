@@ -9,6 +9,12 @@ create table if not exists prospects (
   website_url text,
   demo_url text,
   source text,
+  cold_caller text,
+  closer text,
+  meeting_date date,
+  meeting_url text,
+  meeting_outcome text,
+  deal_value text,
   status text not null default 'New lead',
   last_contacted_date date,
   next_follow_up_date date,
@@ -40,4 +46,5 @@ create index if not exists prospects_status_idx on prospects(status);
 create index if not exists prospects_city_idx on prospects(city);
 create index if not exists prospects_trade_idx on prospects(trade);
 create index if not exists prospects_next_follow_up_idx on prospects(next_follow_up_date);
+create index if not exists prospects_meeting_date_idx on prospects(meeting_date);
 create index if not exists timeline_entries_prospect_idx on timeline_entries(prospect_id);

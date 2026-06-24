@@ -1,4 +1,4 @@
-import { CalendarClock, Handshake, MailCheck, MousePointer2, Reply, UsersRound } from "lucide-react";
+import { CalendarCheck, CalendarClock, Handshake, MousePointer2, Reply, Send, UserCheck, UsersRound } from "lucide-react";
 import type { Stats } from "@/lib/types";
 import { Card } from "./ui";
 
@@ -6,14 +6,16 @@ const statsConfig = [
   { key: "totalProspects", label: "Total prospects", icon: UsersRound },
   { key: "demosSent", label: "Demos sent", icon: MousePointer2 },
   { key: "replies", label: "Replies", icon: Reply },
-  { key: "interestedLeads", label: "Interested leads", icon: MailCheck },
+  { key: "handoffsToCloser", label: "Handed to closer", icon: UserCheck },
+  { key: "meetingsBooked", label: "Meetings booked", icon: CalendarCheck },
+  { key: "proposalsSent", label: "Proposals sent", icon: Send },
   { key: "wonClients", label: "Won clients", icon: Handshake },
   { key: "followUpsDueToday", label: "Due today", icon: CalendarClock }
 ] as const;
 
 export function StatCards({ stats }: { stats: Stats }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {statsConfig.map((item) => {
         const Icon = item.icon;
         return (

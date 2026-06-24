@@ -34,13 +34,17 @@ export function personalizeTemplate(
     .replaceAll("{trade}", prospect.trade || "")
     .replaceAll("{city}", prospect.city || "")
     .replaceAll("{demoUrl}", prospect.demoUrl || "")
+    .replaceAll("{meetingUrl}", prospect.meetingUrl || "")
+    .replaceAll("{closer}", prospect.closer || "")
     .replaceAll("{myName}", myName || "Your Name");
 }
 
 export function statusTone(status: string) {
   if (status === "Won") return "bg-mint text-pine";
   if (status === "Lost") return "bg-red-50 text-coral";
-  if (status === "Interested" || status === "Meeting booked") return "bg-yellow-50 text-amber";
+  if (status === "Proposal sent") return "bg-emerald-50 text-pine";
+  if (status === "Handed to closer" || status === "Meeting booked" || status === "Meeting completed") return "bg-yellow-50 text-amber";
+  if (status === "Interested") return "bg-orange-50 text-amber";
   if (status.includes("Follow-up")) return "bg-blue-50 text-steel";
   if (status === "Replied") return "bg-purple-50 text-purple-700";
   return "bg-field text-ink";

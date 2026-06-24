@@ -51,8 +51,13 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
             <Info label="Website" value={prospect.websiteUrl} href={prospect.websiteUrl} />
             <Info label="Demo" value={prospect.demoUrl} href={prospect.demoUrl} />
             <Info label="Source" value={prospect.source} />
+            <Info label="Cold caller" value={prospect.coldCaller} />
+            <Info label="Closer" value={prospect.closer} />
             <Info label="Last contacted" value={formatDate(prospect.lastContactedDate)} />
             <Info label="Next follow-up" value={formatDate(prospect.nextFollowUpDate)} />
+            <Info label="Meeting date" value={formatDate(prospect.meetingDate)} />
+            <Info label="Teams link" value={prospect.meetingUrl} href={prospect.meetingUrl} />
+            <Info label="Deal value" value={prospect.dealValue} />
             <div className="mt-5">
               <div className="mb-2 text-sm font-semibold text-ink">Quick actions</div>
               <QuickActions prospectId={id} />
@@ -61,6 +66,12 @@ export default async function ProspectDetailPage({ params }: { params: Promise<{
           <Card className="p-5">
             <h2 className="text-lg font-semibold text-ink">Notes</h2>
             <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">{prospect.notes || "No notes yet."}</p>
+          </Card>
+          <Card className="p-5">
+            <h2 className="text-lg font-semibold text-ink">Closer notes</h2>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">
+              {prospect.meetingOutcome || "No meeting outcome recorded yet."}
+            </p>
           </Card>
           <Card className="p-5">
             <h2 className="mb-4 text-lg font-semibold text-ink">Add timeline entry</h2>

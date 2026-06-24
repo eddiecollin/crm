@@ -33,7 +33,7 @@ export default async function TemplatesPage() {
                 <textarea name="body" defaultValue={template.body} className={`${textareaClass} min-h-56`} />
               </Field>
               <div className="text-xs text-slate-500">
-                Placeholders: {"{company}"}, {"{trade}"}, {"{city}"}, {"{demoUrl}"}, {"{myName}"}
+                Placeholders: {"{company}"}, {"{trade}"}, {"{city}"}, {"{demoUrl}"}, {"{meetingUrl}"}, {"{closer}"}, {"{myName}"}
               </div>
               <div className="flex justify-end">
                 <Button>Save template</Button>

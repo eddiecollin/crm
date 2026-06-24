@@ -1,4 +1,4 @@
-import { ExternalLink, Pencil, Plus } from "lucide-react";
+import { ExternalLink, Pencil, Plus, Video } from "lucide-react";
 import type { Prospect } from "@/lib/types";
 import { formatDate, statusTone } from "@/lib/utils";
 import { Card, LinkButton } from "./ui";
@@ -15,7 +15,7 @@ export function ProspectTable({ prospects, emptyLabel = "No prospects yet." }: {
         </LinkButton>
       </div>
       <div className="overflow-x-auto">
-        <table className="min-w-[1500px] w-full border-collapse text-left text-sm">
+        <table className="min-w-[1780px] w-full border-collapse text-left text-sm">
           <thead className="bg-field text-xs uppercase tracking-[0.08em] text-slate-500">
             <tr>
               <th className="px-4 py-3 font-semibold">Company</th>
@@ -26,6 +26,9 @@ export function ProspectTable({ prospects, emptyLabel = "No prospects yet." }: {
               <th className="px-4 py-3 font-semibold">Email</th>
               <th className="px-4 py-3 font-semibold">Website</th>
               <th className="px-4 py-3 font-semibold">Demo</th>
+              <th className="px-4 py-3 font-semibold">Cold caller</th>
+              <th className="px-4 py-3 font-semibold">Closer</th>
+              <th className="px-4 py-3 font-semibold">Meeting</th>
               <th className="px-4 py-3 font-semibold">Status</th>
               <th className="px-4 py-3 font-semibold">Last contacted</th>
               <th className="px-4 py-3 font-semibold">Next follow-up</th>
@@ -53,6 +56,18 @@ export function ProspectTable({ prospects, emptyLabel = "No prospects yet." }: {
                       Site <ExternalLink size={13} />
                     </a>
                   ) : null}
+                </td>
+                <td className="px-4 py-3 text-slate-600">{prospect.coldCaller}</td>
+                <td className="px-4 py-3 text-slate-600">{prospect.closer}</td>
+                <td className="px-4 py-3 text-slate-600">
+                  <div className="flex items-center gap-2">
+                    <span>{formatDate(prospect.meetingDate)}</span>
+                    {prospect.meetingUrl ? (
+                      <a className="inline-flex items-center gap-1 text-pine" href={prospect.meetingUrl} target="_blank">
+                        <Video size={14} />
+                      </a>
+                    ) : null}
+                  </div>
                 </td>
                 <td className="px-4 py-3">
                   {prospect.demoUrl ? (
@@ -83,7 +98,7 @@ export function ProspectTable({ prospects, emptyLabel = "No prospects yet." }: {
             ))}
             {prospects.length === 0 ? (
               <tr>
-                <td className="px-4 py-10 text-center text-slate-500" colSpan={14}>
+                <td className="px-4 py-10 text-center text-slate-500" colSpan={17}>
                   {emptyLabel}
                 </td>
               </tr>

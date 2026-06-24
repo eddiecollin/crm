@@ -5,7 +5,10 @@ export const STATUSES = [
   "Follow-up 2 sent",
   "Replied",
   "Interested",
+  "Handed to closer",
   "Meeting booked",
+  "Meeting completed",
+  "Proposal sent",
   "Won",
   "Lost",
   "Not now"
@@ -24,6 +27,12 @@ export type Prospect = {
   websiteUrl: string;
   demoUrl: string;
   source: string;
+  coldCaller: string;
+  closer: string;
+  meetingDate: string;
+  meetingUrl: string;
+  meetingOutcome: string;
+  dealValue: string;
   status: ProspectStatus;
   lastContactedDate: string;
   nextFollowUpDate: string;
@@ -64,7 +73,11 @@ export type Stats = {
   interestedLeads: number;
   wonClients: number;
   followUpsDueToday: number;
+  handoffsToCloser: number;
+  meetingsBooked: number;
+  meetingsCompleted: number;
+  proposalsSent: number;
   demoToReplyRate: number;
-  replyToInterestedRate: number;
-  interestedToWonRate: number;
+  replyToMeetingRate: number;
+  meetingToWonRate: number;
 };
